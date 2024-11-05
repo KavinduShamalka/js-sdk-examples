@@ -114,6 +114,7 @@ function createKYCAgeCredentialRequest(
   }
 }
 
+
 async function identityCreation() {
   console.log('=============== key creation ===============');
 
@@ -361,17 +362,12 @@ async function generateProofs(useMongoStore = false) {
 
   console.log('================= publish to blockchain ===================');
 
-  const ethSigner = new ethers.Wallet(walletKey, (dataStorage.states as EthStateStorage).provider);
-  const txId = await proofService.transitState(
-    issuerDID,
-    res.oldTreeState,
-    true,
-    dataStorage.states,
-    ethSigner
-  );
-  console.log(txId);
 
   console.log('================= generate credentialAtomicSigV2 ===================');
+
+  try {
+
+  
 
   const proofReqSig: ZeroKnowledgeProofRequest = createKYCAgeCredentialRequest(
     CircuitId.AtomicQuerySigV2,
@@ -386,44 +382,48 @@ async function generateProofs(useMongoStore = false) {
   );
   console.log('valid: ', sigProofOk);
 
-  console.log('================= generate credentialAtomicMTPV2 ===================');
+} catch (error){
+  console.log('Error: ', error);
+}
 
-  const credsWithIden3MTPProof = await identityWallet.generateIden3SparseMerkleTreeProof(
-    issuerDID,
-    res.credentials,
-    txId
-  );
+  // console.log('================= generate credentialAtomicMTPV2 ===================');
 
-  console.log(credsWithIden3MTPProof);
-  await credentialWallet.saveAll(credsWithIden3MTPProof);
+  // const credsWithIden3MTPProof = await identityWallet.generateIden3SparseMerkleTreeProof(
+  //   issuerDID,
+  //   res.credentials,
+  //   txId
+  // );
 
-  const proofReqMtp: ZeroKnowledgeProofRequest = createKYCAgeCredentialRequest(
-    CircuitId.AtomicQueryMTPV2,
-    credentialRequest
-  );
+  // console.log(credsWithIden3MTPProof);
+  // await credentialWallet.saveAll(credsWithIden3MTPProof);
 
-  const { proof: proofMTP, pub_signals: pub_signalsMTP } = await proofService.generateProof(
-    proofReqMtp,
-    userDID
-  );
+  // const proofReqMtp: ZeroKnowledgeProofRequest = createKYCAgeCredentialRequest(
+  //   CircuitId.AtomicQueryMTPV2,
+  //   credentialRequest
+  // );
 
-  console.log(JSON.stringify(proofMTP));
-  const mtpProofOk = await proofService.verifyProof(
-    { proof: proofMTP, pub_signals: pub_signalsMTP },
-    CircuitId.AtomicQueryMTPV2
-  );
-  console.log('valid: ', mtpProofOk);
+  // const { proof: proofMTP, pub_signals: pub_signalsMTP } = await proofService.generateProof(
+  //   proofReqMtp,
+  //   userDID
+  // );
 
-  const { proof: proof2, pub_signals: pub_signals2 } = await proofService.generateProof(
-    proofReqSig,
-    userDID
-  );
+  // console.log(JSON.stringify(proofMTP));
+  // const mtpProofOk = await proofService.verifyProof(
+  //   { proof: proofMTP, pub_signals: pub_signalsMTP },
+  //   CircuitId.AtomicQueryMTPV2
+  // );
+  // console.log('valid: ', mtpProofOk);
 
-  const sigProof2Ok = await proofService.verifyProof(
-    { proof: proof2, pub_signals: pub_signals2 },
-    CircuitId.AtomicQuerySigV2
-  );
-  console.log('valid: ', sigProof2Ok);
+  // const { proof: proof2, pub_signals: pub_signals2 } = await proofService.generateProof(
+  //   proofReqSig,
+  //   userDID
+  // );
+
+  // const sigProof2Ok = await proofService.verifyProof(
+  //   { proof: proof2, pub_signals: pub_signals2 },
+  //   CircuitId.AtomicQuerySigV2
+  // );
+  // console.log('valid: ', sigProof2Ok);
 }
 
 async function handleAuthRequest(useMongoStore = false) {

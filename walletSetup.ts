@@ -67,8 +67,8 @@ export function initInMemoryDataStorage({
   conf.url = rpcUrl;
 
   // change here priority fees in case transaction is stuck or processing too long
-  // conf.maxPriorityFeePerGas = '250000000000' - 250 gwei
-  // conf.maxFeePerGas = '250000000000' - 250 gwei
+  conf.maxPriorityFeePerGas = '250000000000'; // - 250 gwei
+  conf.maxFeePerGas = '250000000000'; // - 250 gwei
 
   const dataStorage = {
     credential: new CredentialStorage(new InMemoryDataSource<W3CCredential>()),
