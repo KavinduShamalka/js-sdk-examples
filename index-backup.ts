@@ -31,8 +31,6 @@ dotenv.config();
 
 const rhsUrl = process.env.RHS_URL as string;
 const walletKey = process.env.WALLET_KEY as string;
-const issuerDid = process.env.ISSUER_DID || 'did:polygonid:polygon:main:2q6kYgz4n4i88DjgVL3U8PyGUWSpwqPMwWyuPCgVxU';
-const issuerUrl = process.env.ISSUER_URL || 'https://issuer-api.bethel.network';
 
 const defaultNetworkConnection = {
   rpcUrl: process.env.RPC_URL as string,
@@ -77,7 +75,7 @@ function createKYCAgeCredentialRequest(
     circuitId: CircuitId.AtomicQuerySigV2,
     optional: false,
     query: {
-      allowedIssuers: [issuerDid],
+      allowedIssuers: ['*'],
       type: credentialRequest.type,
       context:
         'https://raw.githubusercontent.com/iden3/claim-schema-vocab/main/schemas/json-ld/kyc-v3.json-ld',
@@ -94,9 +92,10 @@ function createKYCAgeCredentialRequest(
     circuitId: CircuitId.AtomicQueryMTPV2,
     optional: false,
     query: {
-      allowedIssuers: [issuerDid],
+      allowedIssuers: ['*'],
       type: credentialRequest.type,
-      context:'https://raw.githubusercontent.com/iden3/claim-schema-vocab/main/schemas/json-ld/kyc-v3.json-ld',
+      context:
+        'https://raw.githubusercontent.com/iden3/claim-schema-vocab/main/schemas/json-ld/kyc-v3.json-ld',
       credentialSubject: {
         birthday: {
           $lt: 20020101
@@ -136,32 +135,26 @@ async function issueCredential() {
     defaultNetworkConnection
   );
 
-  // First, create the issuer identity and obtain its DID as a string
-  const { did: issuerDIDObj, credential: issuerAuthBJJCredential } = await identityWallet.createIdentity({
-    ...defaultIdentityCreationOptions
-  });
-
-  const issuerDid = issuerDIDObj.string();  // Convert the DID object to string for use in options
-
   const { did: userDID, credential: authBJJCredentialUser } = await identityWallet.createIdentity({
-    ...defaultIdentityCreationOptions,
-    method: issuerDid  // Now issuerDid is assigned, so this is valid
+    ...defaultIdentityCreationOptions
   });
 
   console.log('=============== user did ===============');
   console.log(userDID.string());
 
-  console.log('=============== issuer did ===============');
-  console.log(issuerDid);
+  const { did: issuerDID, credential: issuerAuthBJJCredential } =
+    await identityWallet.createIdentity({ ...defaultIdentityCreationOptions });
 
+  console.log('=============== issuer did ===============');
+  console.log(issuerDID.string());
   const credentialRequest = createKYCAgeCredential(userDID);
-  const credential = await identityWallet.issueCredential(issuerDIDObj, credentialRequest);
+  const credential = await identityWallet.issueCredential(issuerDID, credentialRequest);
 
   console.log('===============  credential ===============');
   console.log(JSON.stringify(credential));
 
   await dataStorage.credential.saveCredential(credential);
-} 
+}
 
 async function transitState() {
   console.log('=============== transit state ===============');
@@ -185,25 +178,25 @@ async function transitState() {
   console.log('=============== user did ===============');
   console.log(userDID.string());
 
-  const { did: issuerDid, credential: issuerAuthBJJCredential } =
+  const { did: issuerDID, credential: issuerAuthBJJCredential } =
     await identityWallet.createIdentity({ ...defaultIdentityCreationOptions });
 
   console.log('=============== issuerDID did ===============');
-  console.log(issuerDid.string());
+  console.log(issuerDID.string());
 
   const credentialRequest = createKYCAgeCredential(userDID);
-  const credential = await identityWallet.issueCredential(issuerDid, credentialRequest);
+  const credential = await identityWallet.issueCredential(issuerDID, credentialRequest);
 
   await dataStorage.credential.saveCredential(credential);
 
   console.log('================= generate Iden3SparseMerkleTreeProof =======================');
 
-  const res = await identityWallet.addCredentialsToMerkleTree([credential], issuerDid);
+  const res = await identityWallet.addCredentialsToMerkleTree([credential], issuerDID);
 
   console.log('================= push states to rhs ===================');
 
   await identityWallet.publishRevocationInfoByCredentialStatusType(
-    issuerDid,
+    issuerDID,
     CredentialStatusType.Iden3ReverseSparseMerkleTreeProof,
     { rhsUrl }
   );
@@ -212,7 +205,7 @@ async function transitState() {
 
   const ethSigner = new ethers.Wallet(walletKey, (dataStorage.states as EthStateStorage).provider);
   const txId = await proofService.transitState(
-    issuerDid,
+    issuerDID,
     res.oldTreeState,
     true,
     dataStorage.states,
@@ -270,7 +263,7 @@ async function transitStateThirdPartyDID() {
   console.log('=============== third party: user did ===============');
   console.log(userDID.string());
 
-  const { did: issuerDid } = await identityWallet.createIdentity({
+  const { did: issuerDID } = await identityWallet.createIdentity({
     method: core.DidMethod.Iden3,
     blockchain: core.Blockchain.linea,
     networkId: core.NetworkId.test,
@@ -280,10 +273,10 @@ async function transitStateThirdPartyDID() {
     }
   });
   console.log('=============== third party: issuer did ===============');
-  console.log(issuerDid.string());
+  console.log(issuerDID.string());
 
   const credentialRequest = createKYCAgeCredential(userDID);
-  const credential = await identityWallet.issueCredential(issuerDid, credentialRequest);
+  const credential = await identityWallet.issueCredential(issuerDID, credentialRequest);
 
   await dataStorage.credential.saveCredential(credential);
 
@@ -291,12 +284,12 @@ async function transitStateThirdPartyDID() {
     '================= third party: generate Iden3SparseMerkleTreeProof ======================='
   );
 
-  const res = await identityWallet.addCredentialsToMerkleTree([credential], issuerDid);
+  const res = await identityWallet.addCredentialsToMerkleTree([credential], issuerDID);
 
   console.log('================= third party: push states to rhs ===================');
 
   await identityWallet.publishRevocationInfoByCredentialStatusType(
-    issuerDid,
+    issuerDID,
     CredentialStatusType.Iden3ReverseSparseMerkleTreeProof,
     { rhsUrl }
   );
@@ -308,7 +301,7 @@ async function transitStateThirdPartyDID() {
     (dataStorage.states as EthStateStorage).provider
   );
   const txId = await proofService.transitState(
-    issuerDid,
+    issuerDID,
     res.oldTreeState,
     true,
     dataStorage.states,
@@ -346,31 +339,34 @@ async function generateProofs(useMongoStore = false) {
   console.log('=============== user did ===============');
   console.log(userDID.string());
 
-  const { did: issuerDid, credential: issuerAuthBJJCredential } =
-    await identityWallet.createIdentity({ ...defaultIdentityCreationOptions });
+  const { did: issuerDID, credential: issuerAuthBJJCredential } = await identityWallet.createIdentity({ ...defaultIdentityCreationOptions });
 
-  const credentialRequest = createKYCAgeCredential(userDID);
-  const credential = await identityWallet.issueCredential(issuerDid, credentialRequest);
+  const credentialRequest = createFileCredential(userDID);
+  const credential = await identityWallet.issueCredential(issuerDID, credentialRequest);
+
+  console.log('')
+  console.log('Credential : ', credential)
+  console.log('')
 
   await dataStorage.credential.saveCredential(credential);
 
   console.log('================= generate Iden3SparseMerkleTreeProof =======================');
 
-  const res = await identityWallet.addCredentialsToMerkleTree([credential], issuerDid);
+  const res = await identityWallet.addCredentialsToMerkleTree([credential], issuerDID);
 
   console.log('================= push states to rhs ===================');
 
-  // await identityWallet.publishRevocationInfoByCredentialStatusType(
-  //   issuerDid,
-  //   CredentialStatusType.Iden3ReverseSparseMerkleTreeProof,
-  //   { rhsUrl }
-  // );
+  await identityWallet.publishRevocationInfoByCredentialStatusType(
+    issuerDID,
+    CredentialStatusType.Iden3ReverseSparseMerkleTreeProof,
+    { rhsUrl }
+  );
 
   console.log('================= publish to blockchain ===================');
 
   // const ethSigner = new ethers.Wallet(walletKey, (dataStorage.states as EthStateStorage).provider);
   // const txId = await proofService.transitState(
-  //   issuerDid,
+  //   issuerDID,
   //   res.oldTreeState,
   //   true,
   //   dataStorage.states,
@@ -380,7 +376,7 @@ async function generateProofs(useMongoStore = false) {
 
   console.log('================= generate credentialAtomicSigV2 ===================');
 
-  const proofReqSig: ZeroKnowledgeProofRequest = createKYCAgeCredentialRequest(
+  const proofReqSig: ZeroKnowledgeProofRequest = createFileCredentialRequest(
     CircuitId.AtomicQuerySigV2,
     credentialRequest
   );
@@ -393,10 +389,10 @@ async function generateProofs(useMongoStore = false) {
   );
   console.log('valid: ', sigProofOk);
 
-  console.log('=======================================================');
+  // console.log('================= generate credentialAtomicMTPV2 ===================');
 
   // const credsWithIden3MTPProof = await identityWallet.generateIden3SparseMerkleTreeProof(
-  //   issuerDid,
+  //   issuerDID,
   //   res.credentials,
   //   txId
   // );
@@ -462,22 +458,22 @@ async function handleAuthRequest(useMongoStore = false) {
   console.log('=============== user did ===============');
   console.log(userDID.string());
 
-  const { did: issuerDid, credential: issuerAuthBJJCredential } =
+  const { did: issuerDID, credential: issuerAuthBJJCredential } =
     await identityWallet.createIdentity({ ...defaultIdentityCreationOptions });
 
   const credentialRequest = createKYCAgeCredential(userDID);
-  const credential = await identityWallet.issueCredential(issuerDid, credentialRequest);
+  const credential = await identityWallet.issueCredential(issuerDID, credentialRequest);
 
   await dataStorage.credential.saveCredential(credential);
 
   console.log('================= generate Iden3SparseMerkleTreeProof =======================');
 
-  const res = await identityWallet.addCredentialsToMerkleTree([credential], issuerDid);
+  const res = await identityWallet.addCredentialsToMerkleTree([credential], issuerDID);
 
   console.log('================= push states to rhs ===================');
 
   await identityWallet.publishRevocationInfoByCredentialStatusType(
-    issuerDid,
+    issuerDID,
     CredentialStatusType.Iden3ReverseSparseMerkleTreeProof,
     { rhsUrl }
   );
@@ -486,7 +482,7 @@ async function handleAuthRequest(useMongoStore = false) {
 
   const ethSigner = new ethers.Wallet(walletKey, (dataStorage.states as EthStateStorage).provider);
   const txId = await proofService.transitState(
-    issuerDid,
+    issuerDID,
     res.oldTreeState,
     true,
     dataStorage.states,
@@ -507,7 +503,7 @@ async function handleAuthRequest(useMongoStore = false) {
     id: 'fe6354fe-3db2-48c2-a779-e39c2dda8d90',
     thid: 'fe6354fe-3db2-48c2-a779-e39c2dda8d90',
     typ: PROTOCOL_CONSTANTS.MediaType.PlainMessage,
-    from: issuerDid.string(),
+    from: issuerDID.string(),
     type: PROTOCOL_CONSTANTS.PROTOCOL_MESSAGE_TYPE.AUTHORIZATION_REQUEST_MESSAGE_TYPE,
     body: {
       callbackUrl: 'http://testcallback.com',
@@ -519,7 +515,7 @@ async function handleAuthRequest(useMongoStore = false) {
   console.log(JSON.stringify(authRequest));
 
   const credsWithIden3MTPProof = await identityWallet.generateIden3SparseMerkleTreeProof(
-    issuerDid,
+    issuerDID,
     res.credentials,
     txId
   );
@@ -528,6 +524,8 @@ async function handleAuthRequest(useMongoStore = false) {
   await credentialWallet.saveAll(credsWithIden3MTPProof);
 
   const authRawRequest = new TextEncoder().encode(JSON.stringify(authRequest));
+
+  // * on the user side */
 
   console.log('============== handle auth request ==============');
   const authV2Data = await circuitStorage.loadCircuitData(CircuitId.AuthV2);
@@ -564,13 +562,14 @@ async function handleAuthRequestWithProfiles() {
   console.log('=============== user did ===============');
   console.log(userDID.string());
 
-  const { did: issuerDid, credential: issuerAuthBJJCredential } =
+  const { did: issuerDID, credential: issuerAuthBJJCredential } =
     await identityWallet.createIdentity({ ...defaultIdentityCreationOptions });
 
-  const profileDID = await identityWallet.createProfile(userDID, 50, issuerDid.string());
+  // credential is issued on the profile!
+  const profileDID = await identityWallet.createProfile(userDID, 50, issuerDID.string());
 
   const credentialRequest = createKYCAgeCredential(profileDID);
-  const credential = await identityWallet.issueCredential(issuerDid, credentialRequest);
+  const credential = await identityWallet.issueCredential(issuerDID, credentialRequest);
 
   await dataStorage.credential.saveCredential(credential);
 
@@ -601,6 +600,8 @@ async function handleAuthRequestWithProfiles() {
 
   const authRawRequest = new TextEncoder().encode(JSON.stringify(authRequest));
 
+  // * on the user side */
+
   console.log('============== handle auth request ==============');
   const authV2Data = await circuitStorage.loadCircuitData(CircuitId.AuthV2);
   const pm = await initPackageManager(
@@ -613,6 +614,7 @@ async function handleAuthRequestWithProfiles() {
 
   const authProfile = await identityWallet.getProfileByVerifier(authRequest.from);
 
+  // let's check that we didn't create profile for verifier
   const authProfileDID = authProfile
     ? core.DID.parse(authProfile.id)
     : await identityWallet.createProfile(userDID, 100, authRequest.from);
@@ -644,13 +646,14 @@ async function handleAuthRequestWithProfilesV3CircuitBeta() {
   console.log('=============== user did ===============');
   console.log(userDID.string());
 
-  const { did: issuerDid, credential: issuerAuthBJJCredential } =
+  const { did: issuerDID, credential: issuerAuthBJJCredential } =
     await identityWallet.createIdentity({ ...defaultIdentityCreationOptions });
 
-  const profileDID = await identityWallet.createProfile(userDID, 50, issuerDid.string());
+  // credential is issued on the profile!
+  const profileDID = await identityWallet.createProfile(userDID, 50, issuerDID.string());
 
   const credentialRequest = createKYCAgeCredential(profileDID);
-  const credential = await identityWallet.issueCredential(issuerDid, credentialRequest);
+  const credential = await identityWallet.issueCredential(issuerDID, credentialRequest);
 
   await dataStorage.credential.saveCredential(credential);
 
@@ -664,7 +667,7 @@ async function handleAuthRequestWithProfilesV3CircuitBeta() {
     },
     query: {
       groupId: 1,
-      allowedIssuers: [issuerDid],
+      allowedIssuers: ['*'],
       proofType: ProofType.BJJSignature,
       type: credentialRequest.type,
       context:
@@ -682,7 +685,7 @@ async function handleAuthRequestWithProfilesV3CircuitBeta() {
     query: {
       groupId: 1,
       proofType: ProofType.BJJSignature,
-      allowedIssuers: [issuerDid],
+      allowedIssuers: ['*'],
       type: credentialRequest.type,
       context:
         'https://raw.githubusercontent.com/iden3/claim-schema-vocab/main/schemas/json-ld/kyc-v3.json-ld',
@@ -714,6 +717,8 @@ async function handleAuthRequestWithProfilesV3CircuitBeta() {
 
   const authRawRequest = new TextEncoder().encode(JSON.stringify(authRequest));
 
+  // * on the user side */
+
   console.log('============== handle auth request ==============');
   const authV2Data = await circuitStorage.loadCircuitData(CircuitId.AuthV2);
   const pm = await initPackageManager(
@@ -726,6 +731,7 @@ async function handleAuthRequestWithProfilesV3CircuitBeta() {
 
   const authProfile = await identityWallet.getProfileByVerifier(authRequest.from);
 
+  // let's check that we didn't create profile for verifier
   const authProfileDID = authProfile
     ? core.DID.parse(authProfile.id)
     : await identityWallet.createProfile(userDID, 100, authRequest.from);
@@ -757,11 +763,11 @@ async function handleAuthRequestNoIssuerStateTransition() {
   console.log('=============== user did ===============');
   console.log(userDID.string());
 
-  const { did: issuerDid, credential: issuerAuthBJJCredential } =
+  const { did: issuerDID, credential: issuerAuthBJJCredential } =
     await identityWallet.createIdentity({ ...defaultIdentityCreationOptions });
 
   const credentialRequest = createKYCAgeCredential(userDID);
-  const credential = await identityWallet.issueCredential(issuerDid, credentialRequest);
+  const credential = await identityWallet.issueCredential(issuerDID, credentialRequest);
 
   await dataStorage.credential.saveCredential(credential);
 
@@ -778,7 +784,7 @@ async function handleAuthRequestNoIssuerStateTransition() {
     id: 'fe6354fe-3db2-48c2-a779-e39c2dda8d90',
     thid: 'fe6354fe-3db2-48c2-a779-e39c2dda8d90',
     typ: PROTOCOL_CONSTANTS.MediaType.PlainMessage,
-    from: issuerDid.string(),
+    from: issuerDID.string(),
     type: PROTOCOL_CONSTANTS.PROTOCOL_MESSAGE_TYPE.AUTHORIZATION_REQUEST_MESSAGE_TYPE,
     body: {
       callbackUrl: 'http://testcallback.com',
@@ -790,6 +796,8 @@ async function handleAuthRequestNoIssuerStateTransition() {
   console.log(JSON.stringify(authRequest));
 
   const authRawRequest = new TextEncoder().encode(JSON.stringify(authRequest));
+
+  // * on the user side */
 
   console.log('============== handle auth request ==============');
   const authV2Data = await circuitStorage.loadCircuitData(CircuitId.AuthV2);
@@ -828,10 +836,10 @@ async function handleAuthRequestV3CircuitsBetaStateTransition() {
 
   const authHandler = new AuthHandler(pm, proofService);
 
-  const { did: issuerDid, credential: issuerAuthBJJCredential } =
+  const { did: issuerDID, credential: issuerAuthBJJCredential } =
     await identityWallet.createIdentity({ ...defaultIdentityCreationOptions });
 
-  console.log('=============== user did ===============', issuerDid.string());
+  console.log('=============== user did ===============', issuerDID.string());
 
   const { did: userDID, credential: authBJJCredentialUser } = await identityWallet.createIdentity({
     ...defaultIdentityCreationOptions
@@ -839,7 +847,7 @@ async function handleAuthRequestV3CircuitsBetaStateTransition() {
 
   console.log('=============== user did ===============', userDID.string());
 
-  const profileDID = await identityWallet.createProfile(userDID, 777, issuerDid.string());
+  const profileDID = await identityWallet.createProfile(userDID, 777, issuerDID.string());
 
   const claimReq: CredentialRequest = {
     credentialSchema:
@@ -856,15 +864,15 @@ async function handleAuthRequestV3CircuitsBetaStateTransition() {
       id: rhsUrl
     }
   };
-  const issuedCred = await identityWallet.issueCredential(issuerDid, claimReq);
+  const issuedCred = await identityWallet.issueCredential(issuerDID, claimReq);
   await credentialWallet.save(issuedCred);
   console.log('=============== issued birthday credential ===============');
 
-  const res = await identityWallet.addCredentialsToMerkleTree([issuedCred], issuerDid);
+  const res = await identityWallet.addCredentialsToMerkleTree([issuedCred], issuerDID);
   console.log('=============== added to merkle tree ===============');
 
   await identityWallet.publishRevocationInfoByCredentialStatusType(
-    issuerDid,
+    issuerDID,
     CredentialStatusType.Iden3ReverseSparseMerkleTreeProof,
     { rhsUrl }
   );
@@ -873,7 +881,7 @@ async function handleAuthRequestV3CircuitsBetaStateTransition() {
   const ethSigner = new ethers.Wallet(walletKey, (dataStorage.states as EthStateStorage).provider);
 
   const txId = await proofService.transitState(
-    issuerDid,
+    issuerDID,
     res.oldTreeState,
     true,
     dataStorage.states,
@@ -883,7 +891,7 @@ async function handleAuthRequestV3CircuitsBetaStateTransition() {
   console.log('=============== state transition ===============', txId);
 
   const credsWithIden3MTPProof = await identityWallet.generateIden3SparseMerkleTreeProof(
-    issuerDid,
+    issuerDID,
     res.credentials,
     txId
   );
@@ -909,7 +917,7 @@ async function handleAuthRequestV3CircuitsBetaStateTransition() {
       id: rhsUrl
     }
   };
-  const employeeCred = await identityWallet.issueCredential(issuerDid, employeeCredRequest);
+  const employeeCred = await identityWallet.issueCredential(issuerDID, employeeCredRequest);
 
   await credentialWallet.save(employeeCred);
 
@@ -995,7 +1003,7 @@ async function handleAuthRequestV3CircuitsBetaStateTransition() {
     type: PROTOCOL_CONSTANTS.PROTOCOL_MESSAGE_TYPE.AUTHORIZATION_REQUEST_MESSAGE_TYPE,
     thid: id,
     body: authReqBody,
-    from: issuerDid.string()
+    from: issuerDID.string()
   };
 
   const msgBytes = byteEncoder.encode(JSON.stringify(authReq));
@@ -1003,6 +1011,73 @@ async function handleAuthRequestV3CircuitsBetaStateTransition() {
 
   const authHandlerRequest = await authHandler.handleAuthorizationRequest(userDID, msgBytes);
   console.log(JSON.stringify(authHandlerRequest, null, 2));
+}
+
+
+function createFileCredential(did: core.DID) {
+  const credentialRequest: CredentialRequest = {
+    credentialSchema:
+      'https://raw.githubusercontent.com/bethelplatform/Bethel-Schema-FileCredential/main/FileCredentials-v3.json',
+    type: 'FileCredentials',
+    credentialSubject: {
+      id: did.string(),
+      hash: '19960424'
+    },
+    expiration: 12345678888,
+    revocationOpts: {
+      type: CredentialStatusType.Iden3ReverseSparseMerkleTreeProof,
+      id: rhsUrl
+    }
+  };
+  return credentialRequest;
+}
+
+function createFileCredentialRequest(
+  circuitId: CircuitId,
+  credentialRequest: CredentialRequest
+): ZeroKnowledgeProofRequest {
+  const proofReqSig: ZeroKnowledgeProofRequest = {
+    id: 1,
+    circuitId: CircuitId.AtomicQuerySigV2,
+    optional: false,
+    query: {
+      allowedIssuers: ['*'],
+      type: 'FileCredentials',
+      context:
+        'https://raw.githubusercontent.com/bethelplatform/Bethel-Schema-FileCredential/main/file-v3.json-ld',
+      credentialSubject: {
+        hash: {
+          $eq: '19960424'
+        }
+      }
+    }
+  };
+
+  const proofReqMtp: ZeroKnowledgeProofRequest = {
+    id: 1,
+    circuitId: CircuitId.AtomicQueryMTPV2,
+    optional: false,
+    query: {
+      allowedIssuers: ['*'],
+      type: credentialRequest.type,
+      context:
+        'https://raw.githubusercontent.com/iden3/claim-schema-vocab/main/schemas/json-ld/kyc-v3.json-ld',
+      credentialSubject: {
+        birthday: {
+          $lt: 20020101
+        }
+      }
+    }
+  };
+
+  switch (circuitId) {
+    case CircuitId.AtomicQuerySigV2:
+      return proofReqSig;
+    case CircuitId.AtomicQueryMTPV2:
+      return proofReqMtp;
+    default:
+      return proofReqSig;
+  }
 }
 
 async function main(choice: string) {
@@ -1050,6 +1125,7 @@ async function main(choice: string) {
       break;
 
     default:
+      // default run all
       await identityCreation();
       await issueCredential();
       await transitState();
