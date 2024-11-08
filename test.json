@@ -1,0 +1,54 @@
+{
+    "@context": [
+      "https://www.w3.org/2018/credentials/v1",
+      "https://schema.iden3.io/core/jsonld/iden3proofs.jsonld",
+      "https://raw.githubusercontent.com/iden3/claim-schema-vocab/main/schemas/json-ld/kyc-v3.json-ld"
+    ],
+    "credentialSchema": {
+      "id": "https://raw.githubusercontent.com/iden3/claim-schema-vocab/main/schemas/json/KYCAgeCredential-v3.json",
+      "type": "JsonSchema2023"
+    },
+    "credentialStatus": {
+      "id": "https://issuer-api.bethel.network/v1/agent",
+      "revocationNonce": 1889270713,
+      "type": "Iden3commRevocationStatusV1.0"
+    },
+    "credentialSubject": {
+      "birthday": 19960424,
+      "documentType": 2,
+      "id": "did:polygonid:polygon:main:2q1TXnWnYQt1J4A5Gk1tifEJLEz36e9aK6risH7xZY",
+      "type": "KYCAgeCredential"
+    },
+    "expirationDate": "2030-04-25T14:29:26Z",
+    "id": "urn:uuid:4e67bf1e-9c2b-11ef-95f5-56c0fa2df5ca",
+    "issuanceDate": "2024-11-06T10:38:48.473444411Z",
+    "issuer": "did:polygonid:polygon:main:2q6kYgz4n4i88DjgVL3U8PyGUWSpwqPMwWyuPCgVxU",
+    "proof": [
+      {
+        "type": "BJJSignature2021",
+        "issuerData": {
+          "id": "did:polygonid:polygon:main:2q6kYgz4n4i88DjgVL3U8PyGUWSpwqPMwWyuPCgVxU",
+          "state": {
+            "claimsTreeRoot": "c6c8bee4e176a3f8cdaecdcd62e9f9a05877c8175e3550d099da468cba9db101",
+            "value": "f5f9cd28968217019e969a45310930c1ec472825103d1c806c3cc258c425c52a"
+          },
+          "authCoreClaim": "cca3371a6cb1b715004407e325bd993c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000061e465274af75ffcfcd7c67e1c3af7f344d3c08e0e68b384f88c635e51df22a2668f71cc994bf14fa1b25b76615321bd957b22e8a8f6ba3ef9bd9c10e0d742d0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+          "mtp": {
+            "existence": true,
+            "siblings": []
+          },
+          "credentialStatus": {
+            "id": "https://issuer-api.bethel.network/v1/agent",
+            "revocationNonce": 0,
+            "type": "Iden3commRevocationStatusV1.0"
+          }
+        },
+        "coreClaim": "c9b2370371b7fa8b3dab2a5ba81b68382a00000000000000000000000000000002110d7cf39b2b826dfb160a6ec25bfd1d6d074a843b9a19e7be492807510b00c191dc03fc21ab701309c1896185c2fa9156ab372666afb8e74d79acb351a7280000000000000000000000000000000000000000000000000000000000000000b9fb9b700000000046ef72710000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "signature": "5a5ca1b599b9d03c9400b5b92b1b04f4c38e01b55034d4d73503e22a3e80fca7406c331c38d5dd4aa32ea80b8276375dba6b00fcac2ee36232442a87d2bce100"
+      }
+    ],
+    "type": [
+      "VerifiableCredential",
+      "KYCAgeCredential"
+    ]
+  }

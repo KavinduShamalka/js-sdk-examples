@@ -13,7 +13,12 @@ import {
   IdentityCreationOptions,
   ProofType,
   AuthorizationRequestMessageBody,
-  byteEncoder
+  byteEncoder,
+  W3CCredential,
+  BJJSignatureProof2021,
+  CoreClaimCreationOptions,
+  Iden3SparseMerkleTreeProof,
+  W3CProofVerificationOptions
 } from '@0xpolygonid/js-sdk';
 
 import {
@@ -27,12 +32,14 @@ import {
 import { ethers } from 'ethers';
 import dotenv from 'dotenv';
 import { generateRequestData } from './request';
+import { Options, Merklizer } from '@iden3/js-jsonld-merklization';
 dotenv.config();
 
 const rhsUrl = process.env.RHS_URL as string;
 const walletKey = process.env.WALLET_KEY as string;
-const issuerDid = process.env.ISSUER_DID || 'did:polygonid:polygon:main:2q6kYgz4n4i88DjgVL3U8PyGUWSpwqPMwWyuPCgVxU';
+const issuerDID = process.env.ISSUER_DID || 'did:polygonid:polygon:main:2q6kYgz4n4i88DjgVL3U8PyGUWSpwqPMwWyuPCgVxU';
 const issuerUrl = process.env.ISSUER_URL || 'https://issuer-api.bethel.network';
+
 
 const defaultNetworkConnection = {
   rpcUrl: process.env.RPC_URL as string,
@@ -46,7 +53,7 @@ export const defaultIdentityCreationOptions: IdentityCreationOptions = {
   revocationOpts: {
     type: CredentialStatusType.Iden3ReverseSparseMerkleTreeProof,
     id: rhsUrl
-  }
+  },
 };
 
 function createKYCAgeCredential(did: core.DID) {
@@ -77,7 +84,7 @@ function createKYCAgeCredentialRequest(
     circuitId: CircuitId.AtomicQuerySigV2,
     optional: false,
     query: {
-      allowedIssuers: [issuerDid],
+      allowedIssuers: ['*'],
       type: credentialRequest.type,
       context:
         'https://raw.githubusercontent.com/iden3/claim-schema-vocab/main/schemas/json-ld/kyc-v3.json-ld',
@@ -94,7 +101,7 @@ function createKYCAgeCredentialRequest(
     circuitId: CircuitId.AtomicQueryMTPV2,
     optional: false,
     query: {
-      allowedIssuers: [issuerDid],
+      allowedIssuers: ['*'],
       type: credentialRequest.type,
       context:'https://raw.githubusercontent.com/iden3/claim-schema-vocab/main/schemas/json-ld/kyc-v3.json-ld',
       credentialSubject: {
@@ -115,24 +122,111 @@ function createKYCAgeCredentialRequest(
   }
 }
 
+//////////////////////////////
+
+function createFileCredential(did: core.DID) {
+  const credentialRequest: CredentialRequest = {
+    credentialSchema:
+      'https://raw.githubusercontent.com/bethelplatform/Bethel-Schema-FileCredential/main/FileCredentials-v3.json',
+    type: 'FileCredentials',
+    credentialSubject: {
+      id: did.string(),
+      hash: '19960424'
+    },
+    expiration: 12345678888,
+    revocationOpts: {
+      type: CredentialStatusType.Iden3ReverseSparseMerkleTreeProof,
+      id: rhsUrl
+    }
+  };
+  return credentialRequest;
+}
+
+function createFileCredentialRequest(
+  circuitId: CircuitId,
+  credentialRequest: CredentialRequest
+): ZeroKnowledgeProofRequest {
+  const proofReqSig: ZeroKnowledgeProofRequest = {
+    id: 1,
+    circuitId: CircuitId.AtomicQuerySigV2,
+    optional: false,
+    query: {
+      allowedIssuers: ["*"],
+      type: 'FileCredentials',
+      context:
+        'https://raw.githubusercontent.com/bethelplatform/Bethel-Schema-FileCredential/main/file-v3.json-ld',
+      credentialSubject: {
+        hash: {
+          $eq: '19960424'
+        }
+      }
+    }
+  };
+
+  const proofReqMtp: ZeroKnowledgeProofRequest = {
+    id: 1,
+    circuitId: CircuitId.AtomicQueryMTPV2,
+    optional: false,
+    query: {
+      allowedIssuers: ['*'],
+      type: credentialRequest.type,
+      context:
+        'https://raw.githubusercontent.com/iden3/claim-schema-vocab/main/schemas/json-ld/kyc-v3.json-ld',
+      credentialSubject: {
+        birthday: {
+          $lt: 20020101
+        }
+      }
+    }
+  };
+
+  switch (circuitId) {
+    case CircuitId.AtomicQuerySigV2:
+      return proofReqSig;
+    case CircuitId.AtomicQueryMTPV2:
+      return proofReqMtp;
+    default:
+      return proofReqSig;
+  }
+}
+
+////////////////////////////////////
+
 async function identityCreation() {
   console.log('=============== key creation ===============');
 
-  const { identityWallet } = await initInMemoryDataStorageAndWallets(defaultNetworkConnection);
+  const { identityWallet } = await initMongoDataStorageAndWallets(defaultNetworkConnection);
   const { did, credential } = await identityWallet.createIdentity({
-    ...defaultIdentityCreationOptions
+    method: core.DidMethod.Iden3,
+    blockchain: core.Blockchain.Polygon,
+    networkId: core.NetworkId.Main,
+    revocationOpts: {
+      type: CredentialStatusType.Iden3ReverseSparseMerkleTreeProof,
+      id: "https://rhs-staging.polygonid.me"
+    }
+  });
+
+  // const { did: issuerDid, credential: issuerAuthBJJCredential } = await identityWallet.createIdentity({ ...defaultIdentityCreationOptions });
+
+  const { did: issuerDid, credential: issuerAuthBJJCredential } = await identityWallet.createIdentity({
+    method: core.DidMethod.Iden3,
+    blockchain: core.Blockchain.Polygon,
+    networkId: core.NetworkId.Main,
+    revocationOpts: {
+      type: CredentialStatusType.Iden3ReverseSparseMerkleTreeProof,
+      id: "https://rhs-staging.polygonid.me"
+    }
   });
 
   console.log('=============== did ===============');
   console.log(did.string());
   console.log('=============== Auth BJJ credential ===============');
-  console.log(JSON.stringify(credential));
 }
 
 async function issueCredential() {
   console.log('=============== issue credential ===============');
 
-  const { dataStorage, identityWallet } = await initInMemoryDataStorageAndWallets(
+  const { dataStorage, identityWallet } = await initMongoDataStorageAndWallets(
     defaultNetworkConnection
   );
 
@@ -141,18 +235,18 @@ async function issueCredential() {
     ...defaultIdentityCreationOptions
   });
 
-  const issuerDid = issuerDIDObj.string();  // Convert the DID object to string for use in options
+  const issuerDID = issuerDIDObj.string();  // Convert the DID object to string for use in options
 
   const { did: userDID, credential: authBJJCredentialUser } = await identityWallet.createIdentity({
     ...defaultIdentityCreationOptions,
-    method: issuerDid  // Now issuerDid is assigned, so this is valid
+   // method: issuerDID  // Now issuerDid is assigned, so this is valid
   });
 
   console.log('=============== user did ===============');
   console.log(userDID.string());
 
   console.log('=============== issuer did ===============');
-  console.log(issuerDid);
+  console.log(issuerDID);
 
   const credentialRequest = createKYCAgeCredential(userDID);
   const credential = await identityWallet.issueCredential(issuerDIDObj, credentialRequest);
@@ -339,19 +433,36 @@ async function generateProofs(useMongoStore = false) {
     circuitStorage
   );
 
+
+
   const { did: userDID, credential: authBJJCredentialUser } = await identityWallet.createIdentity({
     ...defaultIdentityCreationOptions
   });
 
+  // const didInstance: core.DID = {
+  //   method: '',
+  //   id: '',
+  //   idStrings: ['', '', ''],
+  //   params: [],
+  //   path: '',
+  //   pathSegments: [],
+  //   query: '',
+  //   fragment: '',
+  //   isUrl: function (): boolean {
+  //     return false;
+  //   },
+  //   string: function (): string {
+  //     return 'did:polygonid:polygon:main:2q1TXnWnYQt1J4A5Gk1tifEJLEz36e9aK6risH7xZY';
+  //   }
+  // };
+
   console.log('=============== user did ===============');
   console.log(userDID.string());
 
-  const { did: issuerDid, credential: issuerAuthBJJCredential } =
-    await identityWallet.createIdentity({ ...defaultIdentityCreationOptions });
+  const { did: issuerDid, credential: issuerAuthBJJCredential } = await identityWallet.createIdentity({ ...defaultIdentityCreationOptions });
 
-  const credentialRequest = createKYCAgeCredential(userDID);
+  const credentialRequest = createFileCredential(userDID);
   const credential = await identityWallet.issueCredential(issuerDid, credentialRequest);
-
   await dataStorage.credential.saveCredential(credential);
 
   console.log('================= generate Iden3SparseMerkleTreeProof =======================');
@@ -380,7 +491,7 @@ async function generateProofs(useMongoStore = false) {
 
   console.log('================= generate credentialAtomicSigV2 ===================');
 
-  const proofReqSig: ZeroKnowledgeProofRequest = createKYCAgeCredentialRequest(
+  const proofReqSig: ZeroKnowledgeProofRequest = createFileCredentialRequest(
     CircuitId.AtomicQuerySigV2,
     credentialRequest
   );

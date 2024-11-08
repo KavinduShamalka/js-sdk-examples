@@ -175,7 +175,10 @@ export async function initMongoDataStorageAndWallets(config: {
 
 export async function initCredentialWallet(dataStorage: IDataStorage): Promise<CredentialWallet> {
   const resolvers = new CredentialStatusResolverRegistry();
-  resolvers.register(CredentialStatusType.SparseMerkleTreeProof, new IssuerResolver());
+  resolvers.register(
+    CredentialStatusType.SparseMerkleTreeProof, 
+    new IssuerResolver()
+  );
   resolvers.register(
     CredentialStatusType.Iden3ReverseSparseMerkleTreeProof,
     new RHSResolver(dataStorage.states)
@@ -184,7 +187,10 @@ export async function initCredentialWallet(dataStorage: IDataStorage): Promise<C
     CredentialStatusType.Iden3OnchainSparseMerkleTreeProof2023,
     new OnChainResolver([defaultEthConnectionConfig])
   );
-  resolvers.register(CredentialStatusType.Iden3commRevocationStatusV1, new AgentResolver());
+  resolvers.register(
+    CredentialStatusType.Iden3commRevocationStatusV1, 
+    new AgentResolver()
+  );
 
   return new CredentialWallet(dataStorage, resolvers);
 }
